@@ -1,0 +1,187 @@
+case_id,domain_tag,symptom,topology_note,show_outputs,expected_fault,osi_layer,severity
+CASE-001,VLAN,PC in Finance cannot reach another Finance PC; both ports show access mode.,SW1 Fa0/10 and Fa0/11 should be access ports in VLAN 10.,"SW1#show vlan brief
+VLAN Name Status Ports
+1 default active Fa0/1, Fa0/10, Fa0/11
+10 FINANCE active
+SW1#show interfaces fa0/10 switchport
+Administrative Mode: static access
+Operational Mode: static access
+Access Mode VLAN: 1",Access ports Fa0/10 and Fa0/11 are assigned to VLAN 1 instead of VLAN 10.,Layer 2,High
+CASE-002,Inter-VLAN,VLAN 20 users can reach their gateway but cannot reach VLAN 30 hosts.,R1 provides router-on-a-stick routing on G0/0/0; SW1 uplinks on G0/24.,"R1#show ip interface brief
+G0/0/0.20 192.168.20.1 up up
+G0/0/0.30 192.168.30.1 up up
+SW1#show interfaces g0/24 switchport
+Administrative Mode: static access
+Operational Mode: static access
+Access Mode VLAN: 20",The switch-to-router link is access VLAN 20 rather than an 802.1Q trunk carrying both VLANs.,Layer 2/3,Critical
+CASE-003,DHCP,Clients in VLAN 40 self-assign 169.254.x.x addresses.,DHCP server is 10.10.100.10 outside the client subnet.,"SW1#show run interface vlan 40
+interface Vlan40
+ ip address 10.10.40.1 255.255.255.0
+ no shutdown
+R1#show run interface g0/0/0.40
+interface G0/0/0.40
+ encapsulation dot1Q 40
+ ip address 10.10.40.1 255.255.255.0",No DHCP relay is configured on the VLAN 40 gateway; clients' broadcasts cannot reach the remote DHCP server.,Layer 3,High
+CASE-004,DNS,Users can ping 8.8.8.8 but web names such as example.com do not resolve.,Clients use DHCP-provided DNS server 10.20.0.53.,"PC>ipconfig /all
+DNS Servers . . . . . . : 10.20.0.53
+PC>ping 8.8.8.8
+Reply from 8.8.8.8: bytes=32 time=22ms
+R1#show ip route 10.20.0.0
+% Network not in table",The DNS server subnet is unreachable because the required route to 10.20.0.0/24 is missing.,Layer 3/7,High
+CASE-005,Gateway,Hosts in 10.50.10.0/24 can communicate locally but cannot leave the subnet.,Default gateway should be 10.50.10.1 on the distribution router.,"PC>ipconfig
+IPv4 Address: 10.50.10.25
+Subnet Mask: 255.255.255.0
+Default Gateway: 10.50.10.254
+R1#show ip interface brief
+G0/0/1 10.50.10.1 up up",Clients are configured with the wrong default gateway address.,Layer 3,High
+CASE-006,Subnet Mask,A workstation in 10.60.8.0/24 cannot reach 10.60.9.20 even though the remote host is up.,Both networks are routed separately as /24 networks.,"PC>ipconfig
+IPv4 Address: 10.60.8.25
+Subnet Mask: 255.255.0.0
+Default Gateway: 10.60.8.1
+R1#show ip route 10.60.9.0
+Routing entry for 10.60.9.0/24","The workstation uses /16 and treats 10.60.9.20 as local, bypassing its router.",Layer 3,Medium
+CASE-007,Duplicate IP,Intermittent connectivity occurs for two devices claiming 10.70.1.50.,Access switch Fa0/7 and Fa0/8 connect the two affected endpoints.,"SW1#show mac address-table address 00aa.1111.2222
+Vlan Mac Address Type Ports
+70 00aa.1111.2222 DYNAMIC Fa0/7
+SW1#show ip arp 10.70.1.50
+Internet 10.70.1.50  -  00bb.3333.4444 ARPA Vlan70
+PC-A>ipconfig
+IPv4 Address: 10.70.1.50","Two endpoints are statically configured with the same IPv4 address, causing ARP instability.",Layer 2/3,Critical
+CASE-008,Static Routing,Branch LAN 10.80.20.0/24 cannot reach the data-center LAN.,R2 connects to R1 over 172.16.12.0/30.,"R2#show ip route 10.10.0.0
+% Network not in table
+R2#show ip interface brief
+G0/0 10.80.20.1 up up
+G0/1 172.16.12.2 up up",R2 lacks a static route for the data-center network via 172.16.12.1.,Layer 3,High
+CASE-009,OSPF,OSPF neighbors remain down and no learned routes appear.,R1 and R2 are directly connected on 10.0.12.0/30 and should form area 0 adjacency.,"R1#show ip ospf neighbor
+Neighbor ID Pri State Dead Time Address Interface
+2.2.2.2 1 EXSTART/- 00:00:31 10.0.12.2 GigabitEthernet0/0
+R1#show ip ospf interface g0/0
+Network Type: BROADCAST
+MTU: 1500
+R2#show interface g0/0 | include MTU
+MTU 1400 bytes",The OSPF adjacency is stuck in EXSTART because the interface MTUs do not match.,Layer 3,Critical
+CASE-010,ACL,Users in VLAN 30 cannot access HTTPS on the application server but can ping it.,Server is 10.30.10.20; HTTPS uses TCP/443.,"R1#show access-lists
+Extended IP access list USER-FILTER
+ 10 deny tcp 10.30.30.0 0.0.0.255 host 10.30.10.20 eq 443
+ 20 permit ip any any
+R1#show ip interface g0/0/0.30
+Inbound access list is USER-FILTER",An ACL explicitly denies VLAN 30 HTTPS traffic to the application server.,Layer 3/4,High
+CASE-011,NAT,Inside users can reach internal networks but cannot access the Internet.,R1 has inside interface G0/0 and outside interface G0/1.,"R1#show ip nat statistics
+Total active translations: 0
+Inside interfaces: GigabitEthernet0/0
+Outside interfaces: GigabitEthernet0/1
+R1#show run | include ip nat inside source",No inside-source NAT overload rule exists for the 192.168.10.0/24 users.,Layer 3,High
+CASE-012,Wireless,Wireless clients associate successfully but receive no IP address.,AP uplink is expected to carry the employee SSID VLAN 50.,"AP#show vlan
+SSID EMPLOYEE -> VLAN 50
+SW1#show interfaces g0/18 switchport
+Administrative Mode: static access
+Operational Mode: static access
+Access Mode VLAN: 1",The AP uplink is in VLAN 1 instead of carrying employee VLAN 50.,Layer 2,High
+CASE-013,Port Security,A user replacement laptop is blocked immediately after connection.,Fa0/12 should allow one learned MAC address.,"SW1#show port-security interface fa0/12
+Port Security: Enabled
+Maximum MAC Addresses: 1
+Total MAC Addresses: 1
+Violation Mode: shutdown
+Security Violation Count: 1
+Port Status: Secure-shutdown",Port security placed the interface into err-disabled after a MAC-address violation.,Layer 2,High
+CASE-014,CDP,Network operations cannot see the directly connected router in CDP neighbors.,R1 G0/0 connects to SW1 G0/1.,"SW1#show cdp interface g0/1
+CDP enabled on interface : No
+SW1#show cdp neighbors
+Device ID Local Intrfce Holdtme Capability Platform Port ID","CDP is disabled on the local interface, so neighbor discovery is unavailable.",Layer 2,Low
+CASE-015,SSH,SSH login fails while console access works; Telnet is also unavailable.,R1 should accept SSH using local user netadmin.,"R1#show ip ssh
+SSH Disabled - version 1.99
+R1#show run | section line vty
+line vty 0 4
+ transport input none
+R1#show run | include username|ip domain-name|crypto key",SSH is disabled and VTY lines accept no remote transport; required SSH prerequisites are incomplete.,Layer 7,High
+CASE-016,VTP,New VLAN 60 created on the VTP client disappears after configuration.,SW1 is intended to receive VLAN database updates from the VTP server SW2.,"SW1#show vtp status
+VTP Operating Mode: Client
+VTP Domain Name: CAMPUS
+Configuration Revision: 0
+SW2#show vtp status
+VTP Operating Mode: Server
+VTP Domain Name: CAMPUS
+Configuration Revision: 12","The VTP client is not receiving the server's VLAN advertisements, so VLAN 60 is not propagated.",Layer 2,Medium
+CASE-017,STP,Users experience a loop-related outage after a redundant link is connected.,SW1 and SW2 have two parallel Layer-2 links in VLAN 10.,"SW1#show spanning-tree vlan 10
+Interface Role Sts Cost
+Fa0/23 Root FWD 19
+Fa0/24 Desg FWD 19
+SW2#show spanning-tree vlan 10
+Interface Role Sts Cost
+Fa0/23 Desg FWD 19
+Fa0/24 Desg FWD 19","STP is not placing one redundant path into a blocking state, indicating an STP topology/control failure.",Layer 2,Critical
+CASE-018,EtherChannel,Traffic across a bundled uplink is uneven and one member is suspended.,SW1 Fa0/21-22 should form a static EtherChannel to SW2.,"SW1#show etherchannel summary
+Group Port-channel Protocol Ports
+1 Po1(SU) - Fa0/21(P) Fa0/22(s)
+SW1#show run interface fa0/22
+interface Fa0/22
+ switchport mode access
+ switchport access vlan 10",Fa0/22 has different switchport parameters from the bundled interface and is suspended from the EtherChannel.,Layer 2,High
+CASE-019,HSRP,Users in the server VLAN lose the default gateway when R1 is rebooted.,R1 and R2 provide HSRP for 10.90.10.1.,"R1#show standby brief
+Interface Grp Pri P State Active Standby Virtual IP
+Gi0/1 10 110 P Active local 10.90.10.2 10.90.10.1
+R2#show standby brief
+Interface Grp Pri P State Active  Standby  Virtual IP
+Gi0/1 10 100 P Active 10.90.10.1 unknown","Both routers report Active because their HSRP peer communication is broken, so failover is not functioning correctly.",Layer 3,Critical
+CASE-020,VLAN,A printer on the Operations floor has no network access after a switch replacement.,Printer is connected to SW2 Fa0/15 and should use VLAN 70.,"SW2#show interfaces fa0/15 switchport
+Administrative Mode: dynamic auto
+Operational Mode: static access
+Access Mode VLAN: 1
+SW2#show vlan brief
+70 OPERATIONS active Fa0/5, Fa0/6",The printer port is not assigned to the required access VLAN 70.,Layer 2,Medium
+CASE-021,Inter-VLAN,VLAN 80 reaches its gateway but cannot reach VLAN 90 after a router configuration change.,R1 G0/0/0 is the trunk; VLAN 80 and 90 use subinterfaces.,"R1#show run interface g0/0/0.90
+interface G0/0/0.90
+ ip address 10.90.90.1 255.255.255.0
+R1#show run interface g0/0/0.80
+interface G0/0/0.80
+ encapsulation dot1Q 80
+ ip address 10.80.80.1 255.255.255.0","The VLAN 90 subinterface is missing its 802.1Q encapsulation statement, so tagged VLAN 90 frames are not mapped to the gateway.",Layer 2/3,Critical
+CASE-022,DHCP,Only some clients in VLAN 25 receive addresses; the pool becomes exhausted quickly.,Pool should serve 10.25.25.0/24 while gateway is 10.25.25.1.,"R1#show ip dhcp pool USERS25
+Pool USERS25 : 10.25.25.0/24
+Utilization mark (high/low): 100% / 80%
+Leased addresses: 254
+R1#show run | include ip dhcp excluded-address
+ip dhcp excluded-address 10.25.25.1 10.25.25.254","Almost the entire DHCP scope is excluded, leaving only one usable address.",Layer 3,High
+CASE-023,DNS,Internal hostname resolution works inconsistently; clients query an unintended resolver.,Corporate DNS is 10.100.0.53 and should be supplied by DHCP.,"PC>ipconfig /all
+DNS Servers . . . . . . : 8.8.8.8
+R1#show run | section dhcp
+ip dhcp pool CORP
+ network 10.100.20.0 255.255.255.0
+ default-router 10.100.20.1
+ dns-server 8.8.8.8","DHCP advertises a public DNS server instead of the corporate DNS server, breaking internal name resolution.",Layer 7,High
+CASE-024,Gateway,"A newly configured router interface is up, but hosts cannot reach the next-hop gateway.",Router should use 172.20.1.1/30 on the transit link.,"R1#show ip interface brief
+G0/0 172.20.1.5 up up
+R2#show ip interface brief
+G0/0 172.20.1.2 up up
+R1#show ip route 172.20.1.0
+C 172.20.1.4/30 is directly connected, GigabitEthernet0/0",R1 is addressed in 172.20.1.4/30 while R2 expects 172.20.1.0/30; the two interfaces are in different subnets.,Layer 3,Critical
+CASE-025,Subnet Mask,A host reports intermittent reachability to a remote /24 network after manual TCP/IP configuration.,Network standard requires 255.255.255.0 for the 10.110.5.0 subnet.,"PC>ipconfig
+IPv4 Address: 10.110.5.25
+Subnet Mask: 255.255.255.128
+Default Gateway: 10.110.5.1
+R1#show ip route 10.110.5.0
+C 10.110.5.0/24 is directly connected, GigabitEthernet0/1","The host uses /25 while the routed LAN is /24, causing incorrect local/remote boundary decisions.",Layer 3,Medium
+CASE-026,Static Routing,A remote office can reach headquarters but headquarters cannot return traffic to the office.,Office LAN is 10.120.30.0/24 behind R3.,"R1#show ip route 10.120.30.0
+% Network not in table
+R3#show ip route 0.0.0.0
+S* 0.0.0.0/0 [1/0] via 172.16.23.1",The headquarters router has no return route for the remote office subnet.,Layer 3,High
+CASE-027,ACL,Management SSH works from the admin subnet but is denied from the jump host.,Only 10.130.10.0/24 should be permitted to TCP/22 on R1.,"R1#show access-lists MGMT
+10 permit tcp 10.130.10.0 0.0.0.255 any eq 22
+20 deny tcp any any eq 22
+R1#show ip interface g0/0
+Inbound access list is MGMT","The ACL permits only the admin subnet and explicitly denies SSH from all other sources, including the jump host.",Layer 3/4,Medium
+CASE-028,NAT,A server published through static NAT is unreachable from the Internet.,Public address 203.0.113.20 should translate to inside server 192.168.200.20.,"R1#show ip nat translations
+Pro Inside global Inside local Outside local Outside global
+--- 203.0.113.21 192.168.200.20 --- ---
+R1#show run | include ip nat inside source static",The static NAT maps the server to 203.0.113.21 instead of the assigned public address 203.0.113.20.,Layer 3/4,High
+CASE-029,Wireless,"Clients connected to the guest SSID can access internal servers, violating guest isolation.",Guest SSID should be VLAN 200 and isolated from RFC1918 internal networks.,"WLC#show wlan guest
+WLAN ID: 20
+SSID: GUEST
+Interface/VLAN: 200
+SW1#show access-lists GUEST-INTERNET
+10 permit ip any any","The guest policy ACL permits all traffic, including access to internal networks.",Layer 2/3/4,Critical
+CASE-030,Port Security,A phone and PC connected through the same access port causes repeated security violations.,Fa0/20 uses a phone passthrough and should permit two secure MAC addresses.,"SW1#show port-security interface fa0/20
+Maximum MAC Addresses: 1
+Total MAC Addresses: 2
+Security Violation Count: 7
+Port Status: Secure-shutdown","Port security maximum is one MAC while the design requires two, causing repeated violations and err-disable.",Layer 2,High

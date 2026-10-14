@@ -1,0 +1,102 @@
+{
+  "project": "NetSage AI System Diagnostic Library",
+  "audit_policy": "Human review is mandatory for security-sensitive, ambiguous, or low-confidence AI diagnoses.",
+  "logs": [
+    {
+      "case_id": "CASE-004",
+      "raw_ai_output_error": {
+        "status": "diagnosed",
+        "primary_fault": {
+          "domain_tag": "DNS",
+          "root_cause": "DNS service is down on 10.20.0.53",
+          "confidence": 0.91
+        }
+      },
+      "human_review_decision": "Rejected",
+      "corrected_fields": {
+        "root_cause": "The DNS server subnet 10.20.0.0/24 is unreachable because the required route is missing.",
+        "confidence": 0.96,
+        "evidence": [
+          "Ping to 8.8.8.8 succeeds.",
+          "The routing table explicitly reports 10.20.0.0 is not in the table."
+        ]
+      },
+      "root_cause_error_analysis": "The model inferred an application-service outage without evidence that the DNS server itself was down. The supplied evidence directly demonstrated a Layer 3 reachability problem."
+    },
+    {
+      "case_id": "CASE-009",
+      "raw_ai_output_error": {
+        "status": "diagnosed",
+        "primary_fault": {
+          "domain_tag": "OSPF",
+          "root_cause": "OSPF authentication mismatch",
+          "confidence": 0.84
+        }
+      },
+      "human_review_decision": "Edited",
+      "corrected_fields": {
+        "root_cause": "OSPF adjacency is stuck in EXSTART because R1 and R2 have mismatched interface MTUs.",
+        "confidence": 0.98,
+        "verification": "Align the MTU values, then verify show ip ospf neighbor reaches FULL."
+      },
+      "root_cause_error_analysis": "The model selected a common EXSTART cause but ignored the explicit MTU 1500 versus MTU 1400 evidence. The error was an evidence-ranking failure."
+    },
+    {
+      "case_id": "CASE-015",
+      "raw_ai_output_error": {
+        "status": "diagnosed",
+        "primary_fault": {
+          "domain_tag": "SSH",
+          "root_cause": "Wrong SSH password",
+          "confidence": 0.79
+        }
+      },
+      "human_review_decision": "Rejected",
+      "corrected_fields": {
+        "root_cause": "SSH is disabled and the VTY lines accept no remote transport; SSH prerequisites are incomplete.",
+        "confidence": 0.99,
+        "security_note": "Do not disable existing access controls merely to restore access."
+      },
+      "root_cause_error_analysis": "No password failure was observed. The explicit command output showed SSH disabled and transport input set to none. The AI fabricated an authentication failure."
+    },
+    {
+      "case_id": "CASE-021",
+      "raw_ai_output_error": {
+        "status": "diagnosed",
+        "primary_fault": {
+          "domain_tag": "Inter-VLAN",
+          "root_cause": "VLAN 90 is missing from the switch trunk allowed list",
+          "confidence": 0.88
+        }
+      },
+      "human_review_decision": "Edited",
+      "corrected_fields": {
+        "root_cause": "R1 subinterface G0/0/0.90 lacks encapsulation dot1Q 90.",
+        "confidence": 0.97,
+        "evidence": [
+          "The VLAN 80 subinterface has an explicit dot1Q encapsulation statement.",
+          "The VLAN 90 subinterface output contains an IP address but no dot1Q encapsulation."
+        ]
+      },
+      "root_cause_error_analysis": "The model guessed a switch-side trunk issue even though the supplied evidence isolated the change to the router subinterface configuration."
+    },
+    {
+      "case_id": "CASE-023",
+      "raw_ai_output_error": {
+        "status": "diagnosed",
+        "primary_fault": {
+          "domain_tag": "DNS",
+          "root_cause": "Corporate DNS server 10.100.0.53 is overloaded",
+          "confidence": 0.73
+        }
+      },
+      "human_review_decision": "Rejected",
+      "corrected_fields": {
+        "root_cause": "DHCP advertises 8.8.8.8 instead of the required corporate DNS server 10.100.0.53.",
+        "confidence": 0.99,
+        "corrected_dhcp_option": "dns-server 10.100.0.53"
+      },
+      "root_cause_error_analysis": "The model invented a capacity problem. The evidence directly showed the DHCP pool configured with the wrong DNS server address."
+    }
+  ]
+}
